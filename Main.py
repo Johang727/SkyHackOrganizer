@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import tkinter as tk
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import os, hashlib, subprocess, re
 from tkinter import filedialog, messagebox
 
@@ -16,14 +17,34 @@ def select_clean_rom() -> None:
     if directory:
         auto_detect_roms()
 
-def apply_patch() -> None:
+def apply_patch(hackname) -> None:
     if not us_rom_path and not eu_rom_path:
         messagebox.showerror("Error", "Please select at least one clean base ROM first!")
         return
     
-    subprocess.run(["xdelta3"]) # finish this command later
+    base_rom = us_rom_path if region.get() == "US" else eu_rom_path
+    outpath = f"{PATCHED_DIR}/{hackname.removesuffix(".xdelta")}.nds"
 
-    messagebox.showinfo("Success", "This is where the magic happens. ROM Patched!")
+    filename = f"{HACKS_DIR}/{hackname}"
+    
+    try:
+        subprocess.run(["xdelta3", "-d", "-s", base_rom, filename, outpath], check=True)
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror("Failed", f"Failed to patch ROM, likely wrong region was selected! {e}")
+        return
+
+    refresh_hack_list()
+
+    messagebox.showinfo("Success", "ROM Patched!")
+
+def play_hack(hackname) -> None:
+    filename = f"{PATCHED_DIR}/{hackname}"
+    
+    try:
+        subprocess.run(["melonDS", filename], check=True)
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror("Failed", f"Failed to open melonDS! {e}")
+        return
 
 def auto_detect_roms() -> None:
     global us_rom_path, eu_rom_path
@@ -58,33 +79,6 @@ def auto_detect_roms() -> None:
             messagebox.showerror("Error", f"Could not read ./base folder: {e}")
 
 
-# Create the main window
-root = tk.Tk()
-root.title("EoS Hack Manager")
-root.geometry("500x500")
-
-# Initialize global variables to store the paths
-us_rom_path:str = ""
-eu_rom_path:str = ""
-
-
-# region init
-region = tk.StringVar()
-region.set("US")
-
-
-
-browse_button = tk.Button(root, text="Select CLEAN ROMs folder.", command=select_clean_rom)
-browse_button.pack(pady=(20, 2))
-
-us_label = tk.Label(root, text="No US ROM selected", fg="gray")
-us_label.pack(pady=(0, 0))
-
-eu_label = tk.Label(root, text="No EU ROM selected", fg="gray")
-eu_label.pack(pady=(0, 20))
-
-auto_detect_roms()
-
 def refresh_hack_list():
     """Scans the hacks/ folder and populates the Listbox."""
 
@@ -114,7 +108,10 @@ def refresh_hack_list():
             return
 
         for file in files:
-            hack_listbox.insert(tk.END, f" 📄 {file}")
+            raw_name = file.removesuffix(".xdelta")
+            print(raw_name)
+            if f" ✅ {raw_name}.nds" not in hack_listbox.get(0, tk.END):
+                hack_listbox.insert(tk.END, f" 📄 {file}")
     except Exception as e:
         messagebox.showerror("Error", f"Could not read hacks folder: {e}")
 
@@ -127,14 +124,78 @@ def get_selected_hack():
         
         # Clean up the emoji prefix to get the raw filename
         filename = selected_text.replace(" 📄 ", "")
+        filename = selected_text.replace(" ✅ ", "")
         
         if re.match(".*nds", filename):
-            messagebox.showinfo("Info", f"Launching MelonDS!")
+            play_hack(filename)
         else:
-            messagebox.showinfo("Info", f"Launching xdelta!")
+            apply_patch(filename)
 
     except IndexError:
         messagebox.showwarning("Warning", "Please select a hack from the list first.")
+
+
+def handle_drop(event):
+    filepath = event.data
+
+    filepath = filepath.strip("{}")
+    hack_name = filepath.split("/")[-1]
+
+    try:
+        if hack_name.endswith(".xdelta"):
+            subprocess.run(["mv", filepath, f"{HACKS_DIR}/{hack_name}"])
+            refresh_hack_list()
+            messagebox.showinfo("Success!", "Added to unpatched roms directory sucessfully!")
+        elif hack_name.endswith(".nds"):
+            with open(filepath, "rb") as f:
+                digest = hashlib.file_digest(f, "md5")
+                md5_hash = digest.hexdigest()
+            if US_CLEAN_HASH == md5_hash or EU_CLEAN_HASH == md5_hash:
+                subprocess.run(["mv", filepath, f"{BASE_DIR}/{hack_name}"])
+                auto_detect_roms()
+                messagebox.showinfo("Success!", "Added to base roms directory sucessfully!")
+            else:
+                subprocess.run(["mv", filepath, f"{PATCHED_DIR}/{hack_name}"])
+                refresh_hack_list()
+                messagebox.showinfo("Success!", "Added to patched roms directory sucessfully!")
+        else:
+            messagebox.showwarning("Invalid File", "Unsupported file dragged in, nothing to do.")
+    except subprocess.CalledProcessError as e:
+        messagebox.showwarning("Error", f"Unable to move file: {e}")
+
+
+# Create the main window
+root = TkinterDnD.Tk()
+root.title("EoS Hack Manager")
+root.geometry("500x500")
+
+root.drop_target_register(DND_FILES)
+root.dnd_bind("<<Drop>>", handle_drop)
+
+
+# Initialize global variables to store the paths
+us_rom_path:str = ""
+eu_rom_path:str = ""
+
+
+# region init
+region = tk.StringVar()
+region.set("US")
+
+base_roms = tk.Frame(root)
+base_roms.pack()
+
+
+us_label = tk.Label(base_roms, text="No US ROM selected", fg="gray")
+us_label.pack(side="left")
+
+divider_base = tk.Label(base_roms, text=" | ", fg="gray")
+divider_base.pack(side="left")
+
+eu_label = tk.Label(base_roms, text="No EU ROM selected", fg="gray")
+eu_label.pack(side="right")
+
+auto_detect_roms()
 
 # Label for the list
 
@@ -147,7 +208,7 @@ us_btn.pack(side="top")
 eu_btn = tk.Radiobutton(region_switcher, text="EU", variable=region, value="EU")
 eu_btn.pack(side="top")
 
-list_label = tk.Label(root, text="Available Patches in /hacks:", font=("Arial", 10, "bold"))
+list_label = tk.Label(root, text="Available Hacks:", font=("Hack", 10, "bold"))
 list_label.pack(pady=(10, 2), anchor="w", padx=10)
 
 # We use a sub-frame to bundle the listbox and scrollbar tightly together
