@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import tkinter as tk
-import os, hashlib
+import os, hashlib, subprocess, re
 from tkinter import filedialog, messagebox
 
 HACKS_DIR:str = "./hacks"
 BASE_DIR:str = "./base"
+PATCHED_DIR:str = "./patched"
 
 US_CLEAN_HASH:str = "10af6a1a4d90ffb48bfb6c444324f7fd"
 EU_CLEAN_HASH:str = "6735749e060e002efd88e61560e45567"
@@ -16,12 +17,12 @@ def select_clean_rom() -> None:
         auto_detect_roms()
 
 def apply_patch() -> None:
-    # A simple check to make sure they actually picked a ROM first
     if not us_rom_path and not eu_rom_path:
         messagebox.showerror("Error", "Please select at least one clean base ROM first!")
         return
     
-    # This is where your xdelta code will go later!
+    subprocess.run(["xdelta3"]) # finish this command later
+
     messagebox.showinfo("Success", "This is where the magic happens. ROM Patched!")
 
 def auto_detect_roms() -> None:
@@ -33,9 +34,6 @@ def auto_detect_roms() -> None:
     else:
         # auto detect the base roms
         try:
-            us_found:bool = False
-            eu_found:bool = False
-
             files:list[str] = [f for f in os.listdir(BASE_DIR) if f.endswith('.nds')]
             
             if not files:
@@ -63,11 +61,17 @@ def auto_detect_roms() -> None:
 # Create the main window
 root = tk.Tk()
 root.title("EoS Hack Manager")
-root.geometry("640x480")
+root.geometry("500x500")
 
 # Initialize global variables to store the paths
 us_rom_path:str = ""
 eu_rom_path:str = ""
+
+
+# region init
+region = tk.StringVar()
+region.set("US")
+
 
 
 browse_button = tk.Button(root, text="Select CLEAN ROMs folder.", command=select_clean_rom)
@@ -81,17 +85,26 @@ eu_label.pack(pady=(0, 20))
 
 auto_detect_roms()
 
-
-# Create the folder automatically if it doesn't exist yet
-if not os.path.exists(HACKS_DIR):
-    os.makedirs(HACKS_DIR)
-
-# --- FUNCTIONS ---
 def refresh_hack_list():
     """Scans the hacks/ folder and populates the Listbox."""
-    # Clear anything currently in the listbox first
+
+    if not os.path.exists(HACKS_DIR):
+        os.makedirs(HACKS_DIR)
+    if not os.path.exists(PATCHED_DIR):
+        os.makedirs(PATCHED_DIR)
+
     hack_listbox.delete(0, tk.END)
-    
+
+    # Populate already patched files
+    try:
+        files = [f for f in os.listdir(PATCHED_DIR) if f.endswith('.nds')]
+
+        for file in files:
+            hack_listbox.insert(tk.END, f" ✅ {file}")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Could not read patched folder: {e}")
+
     # List all files ending in .xdelta
     try:
         files = [f for f in os.listdir(HACKS_DIR) if f.endswith('.xdelta')]
@@ -105,6 +118,7 @@ def refresh_hack_list():
     except Exception as e:
         messagebox.showerror("Error", f"Could not read hacks folder: {e}")
 
+
 def get_selected_hack():
     """Gets the file name currently highlighted by the user."""
     try:
@@ -114,16 +128,28 @@ def get_selected_hack():
         # Clean up the emoji prefix to get the raw filename
         filename = selected_text.replace(" 📄 ", "")
         
-        messagebox.showinfo("Selected", f"You chose: {filename}\nReady to patch!")
+        if re.match(".*nds", filename):
+            messagebox.showinfo("Info", f"Launching MelonDS!")
+        else:
+            messagebox.showinfo("Info", f"Launching xdelta!")
+
     except IndexError:
         messagebox.showwarning("Warning", "Please select a hack from the list first.")
 
-# --- UI LAYOUT ---
 # Label for the list
-list_label = tk.Label(root, text="Available Patches in /hacks:", font=("Arial", 10, "bold"))
-list_label.pack(pady=(10, 2), anchor="w", padx=20) # anchor="w" aligns text to the Left (West)
 
-# --- THE SCROLLING LISTBOX FRAME ---
+region_switcher = tk.Frame(root)
+region_switcher.pack(side="right", padx=(0, 20))
+
+
+us_btn = tk.Radiobutton(region_switcher, text="US", variable=region, value="US")
+us_btn.pack(side="top")
+eu_btn = tk.Radiobutton(region_switcher, text="EU", variable=region, value="EU")
+eu_btn.pack(side="top")
+
+list_label = tk.Label(root, text="Available Patches in /hacks:", font=("Arial", 10, "bold"))
+list_label.pack(pady=(10, 2), anchor="w", padx=10)
+
 # We use a sub-frame to bundle the listbox and scrollbar tightly together
 list_frame = tk.Frame(root)
 list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=5)
@@ -140,7 +166,6 @@ hack_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 # Configure scrollbar to scroll the listbox
 scrollbar.config(command=hack_listbox.yview)
 
-# --- BUTTONS ---
 # Button to check selection
 select_button = tk.Button(root, text="Play Hack", command=get_selected_hack)
 select_button.pack(pady=10)
