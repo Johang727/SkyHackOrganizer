@@ -109,7 +109,6 @@ def refresh_hack_list():
 
         for file in files:
             raw_name = file.removesuffix(".xdelta")
-            print(raw_name)
             if f" ✅ {raw_name}.nds" not in hack_listbox.get(0, tk.END):
                 hack_listbox.insert(tk.END, f" 📄 {file}")
     except Exception as e:
