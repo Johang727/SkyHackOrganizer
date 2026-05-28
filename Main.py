@@ -80,8 +80,6 @@ def auto_detect_roms() -> None:
 
 
 def refresh_hack_list():
-    """Scans the hacks/ folder and populates the Listbox."""
-
     if not os.path.exists(HACKS_DIR):
         os.makedirs(HACKS_DIR)
     if not os.path.exists(PATCHED_DIR):
@@ -89,7 +87,6 @@ def refresh_hack_list():
 
     hack_listbox.delete(0, tk.END)
 
-    # Populate already patched files
     try:
         files = [f for f in os.listdir(PATCHED_DIR) if f.endswith('.nds')]
 
@@ -99,7 +96,6 @@ def refresh_hack_list():
     except Exception as e:
         messagebox.showerror("Error", f"Could not read patched folder: {e}")
 
-    # List all files ending in .xdelta
     try:
         files = [f for f in os.listdir(HACKS_DIR) if f.endswith('.xdelta')]
         
@@ -116,7 +112,6 @@ def refresh_hack_list():
 
 
 def get_selected_hack():
-    """Gets the file name currently highlighted by the user."""
     try:
         selected_index = hack_listbox.curselection()[0]
         selected_text = hack_listbox.get(selected_index)
@@ -163,7 +158,6 @@ def handle_drop(event):
         messagebox.showwarning("Error", f"Unable to move file: {e}")
 
 
-# Create the main window
 root = TkinterDnD.Tk()
 root.title("EoS Hack Manager")
 root.geometry("500x500")
@@ -172,12 +166,11 @@ root.drop_target_register(DND_FILES)
 root.dnd_bind("<<Drop>>", handle_drop)
 
 
-# Initialize global variables to store the paths
 us_rom_path:str = ""
 eu_rom_path:str = ""
 
 
-# region init
+
 region = tk.StringVar()
 region.set("US")
 
@@ -196,8 +189,6 @@ eu_label.pack(side="right")
 
 auto_detect_roms()
 
-# Label for the list
-
 region_switcher = tk.Frame(root)
 region_switcher.pack(side="right", padx=(0, 20))
 
@@ -210,27 +201,21 @@ eu_btn.pack(side="top")
 list_label = tk.Label(root, text="Available Hacks:", font=("Hack", 10, "bold"))
 list_label.pack(pady=(10, 2), anchor="w", padx=10)
 
-# We use a sub-frame to bundle the listbox and scrollbar tightly together
 list_frame = tk.Frame(root)
 list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=5)
 
-# Create Scrollbar
 scrollbar = tk.Scrollbar(list_frame)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-# Create Listbox and link it to Scrollbar
-# exportselection=False prevents losing selection when clicking other elements
+
 hack_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, font=("Courier", 10), exportselection=False)
 hack_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-# Configure scrollbar to scroll the listbox
 scrollbar.config(command=hack_listbox.yview)
 
-# Button to check selection
 select_button = tk.Button(root, text="Play Hack", command=get_selected_hack)
 select_button.pack(pady=10)
 
-# Run the scan automatically when the app opens
 refresh_hack_list()
 
 root.mainloop()
