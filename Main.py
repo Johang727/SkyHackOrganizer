@@ -213,7 +213,7 @@ def update_rom_info(event) -> None:
         selected_index = hack_listbox.curselection()[0]
         selected_text = hack_listbox.get(selected_index)
 
-        filename = selected_text.strip().removeprefix("✅ ").removesuffix(".nds").removesuffix(".xdelta")
+        filename = selected_text.strip().removeprefix("✅ ").removesuffix(".nds").removesuffix(".xdelta").removeprefix("HIDDEN_")
 
         print(f"Should be clean: {filename}")
 
@@ -231,7 +231,7 @@ def show_img(hack_name) -> None:
     except Exception as e:
         messagebox.showerror("Fatal Error", f"Something went wrong: {e}")
 
-    img = img.resize((100, 150))
+    img = img.resize((100, 150)) # type: ignore
     rom_photo = ImageTk.PhotoImage(img)
     rom_photo_label.configure(image=rom_photo)
     rom_photo_label.image = rom_photo 
@@ -298,7 +298,7 @@ us_btn.pack(side="left")
 eu_btn = tk.Radiobutton(region_switcher, text="EU", variable=region, value="EU")
 eu_btn.pack(side="left")
 
-show_hidden_box = tk.Checkbutton(region_switcher, text="Show Hidden:", command=refresh_hack_list, variable=show_hidden)
+show_hidden_box = tk.Checkbutton(region_switcher, text="Show Hidden", command=refresh_hack_list, variable=show_hidden)
 show_hidden_box.pack(side="right")
 
 
