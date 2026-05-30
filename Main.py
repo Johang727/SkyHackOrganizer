@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import os, hashlib, subprocess, shutil
 from tkinter import filedialog, messagebox
+from PIL import Image, ImageTk
 
 HACKS_DIR:str = "./hacks"
 BASE_DIR:str = "./base"
@@ -207,6 +208,34 @@ def handle_drop(event):
         messagebox.showwarning("Error", f"Unable to move file: {e}")
 
 
+def update_rom_info(event) -> None:
+    try:
+        selected_index = hack_listbox.curselection()[0]
+        selected_text = hack_listbox.get(selected_index)
+
+        filename = selected_text.strip().removeprefix("✅ ").removesuffix(".nds").removesuffix(".xdelta")
+
+        print(f"Should be clean: {filename}")
+
+        show_img(filename)
+
+    except IndexError:
+        messagebox.showwarning("Warning", "Please select a hack from the list first.")
+
+def show_img(hack_name) -> None:
+    try:
+        img = Image.open(f"img/{hack_name}.jpg")
+    except FileNotFoundError:
+        messagebox.showwarning("No image!", "No image found in img/ directory. Should be a .jpg!")
+        img = Image.open("img/DEFAULT_ph.jpg")
+    except Exception as e:
+        messagebox.showerror("Fatal Error", f"Something went wrong: {e}")
+
+    img = img.resize((100, 150))
+    rom_photo = ImageTk.PhotoImage(img)
+    rom_photo_label.configure(image=rom_photo)
+    rom_photo_label.image = rom_photo 
+
 root = TkinterDnD.Tk()
 root.title("EoS Hack Manager")
 root.geometry("500x500")
@@ -239,19 +268,27 @@ divider_base.pack(side="left")
 eu_label = tk.Label(base_roms, text="No EU ROM selected", fg="gray")
 eu_label.pack(side="right")
 
+rom_info = tk.Frame(root)
+rom_info.pack(side="right")
+
 auto_detect_roms()
 
 list_label = tk.Label(root, text="Available Hacks:", font=("Hack", 10, "bold"))
 list_label.pack(pady=(10, 2), anchor="w", padx=10)
 
 list_frame = tk.Frame(root)
-list_frame.pack(fill="both", expand=True, padx=20, pady=5)
+list_frame.pack(fill="both", expand=True, padx=20, pady=5)\
+
+
 
 scrollbar = tk.Scrollbar(list_frame)
 scrollbar.pack(side="right", fill="y")
 
+
+
 hack_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, font=("Courier", 10), exportselection=False)
 hack_listbox.pack(side="left", fill="both", expand=True)
+hack_listbox.bind("<<ListboxSelect>>", update_rom_info)
 
 region_switcher = tk.Frame(root)
 region_switcher.pack(padx=(0, 0))
@@ -276,6 +313,16 @@ select_button.pack(side="left")
 
 complete_button = tk.Button(action_buttons, text="Hide/Show", command=toggle_complete)
 complete_button.pack(side="right")
+
+# add a no hack selected image 
+no_image = Image.open("img/DEFAULT_no.jpg")
+no_image = no_image.resize((100, 150)) # type: ignore
+rom_photo = ImageTk.PhotoImage(no_image)
+rom_photo_label = tk.Label(rom_info, image=rom_photo)
+rom_photo_label.image = rom_photo
+rom_photo_label.pack(side="top", padx=(0, 20))
+
+
 
 
 refresh_hack_list()
