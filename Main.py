@@ -6,6 +6,7 @@ import os, hashlib, subprocess, shutil
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 
+# define variables for directories.
 HACKS_DIR:str = "./hacks"
 BASE_DIR:str = "./base"
 PATCHED_DIR:str = "./patched"
@@ -14,9 +15,14 @@ US_CLEAN_HASH:str = "10af6a1a4d90ffb48bfb6c444324f7fd"
 EU_CLEAN_HASH:str = "6735749e060e002efd88e61560e45567"
 
 def toggle_complete() -> None:
+    """
+    Hides or unhides the current selection in the list.
+    """
     try:
         selected_index = hack_listbox.curselection()[0]
         selected_text = hack_listbox.get(selected_index)
+        if selected_text == " ❌ No Files Found.":
+            return
 
         filename:str = selected_text.strip().removeprefix("✅ ")
 
@@ -53,14 +59,14 @@ def toggle_complete() -> None:
     except IndexError:
         messagebox.showwarning("Warning", "Please select a hack from the list first.")
 
-def select_clean_rom() -> None:
-    directory = filedialog.askdirectory()
-    if directory:
-        auto_detect_roms()
+def apply_patch(hackname:str) -> None:
+    """
+    Patches the selected region ROM using the .xdelta file and outputs it to ./patched
 
-def apply_patch(hackname) -> None:
+    :param str hackname: .xdelta file name
+    """
     if not us_rom_path and not eu_rom_path:
-        messagebox.showerror("Error", "Please select at least one clean base ROM first!")
+        messagebox.showerror("Error", "Please drag in at least one clean base ROM first!")
         return
     
     base_rom = us_rom_path if region.get() == "US" else eu_rom_path
@@ -78,7 +84,12 @@ def apply_patch(hackname) -> None:
 
     messagebox.showinfo("Success", "ROM Patched!")
 
-def play_hack(hackname) -> None:
+def play_hack(hackname:str) -> None:
+    """
+    Opens a ROM hack in MelonDS
+
+    :param str hackname: cleaned hack file name 
+    """
     filename = f"{PATCHED_DIR}/{hackname}"
     
     try:
@@ -88,18 +99,17 @@ def play_hack(hackname) -> None:
         return
 
 def auto_detect_roms() -> None:
+    """
+    Automatically detects and verifies clean PMD2 ROMs (excluding JP) in the base/ directory.
+    """
     global us_rom_path, eu_rom_path
 
     if not os.path.exists(BASE_DIR):
         os.makedirs(BASE_DIR)
-        messagebox.showwarning("Warning", "A base directory has been created in this folder, please place your base .nds files here!")
+        messagebox.showwarning("Warning", "A directory (./base) has been created in this folder, please place your base .nds files here!")
     else:
-        # auto detect the base roms
         try:
             files:list[str] = [f for f in os.listdir(BASE_DIR) if f.endswith('.nds')]
-            
-            if not files:
-                messagebox.showwarning("Warning", "Could not find any .nds files in ./base")
 
             for file in files:
                 # check here for files
@@ -119,8 +129,10 @@ def auto_detect_roms() -> None:
         except Exception as e:
             messagebox.showerror("Error", f"Could not read ./base folder: {e}")
 
-
 def refresh_hack_list():
+    """
+    Removes and repopulates the list element, excluding duplicate files.
+    """
     if not os.path.exists(HACKS_DIR):
         os.makedirs(HACKS_DIR)
 
@@ -145,7 +157,7 @@ def refresh_hack_list():
         files = [f for f in os.listdir(HACKS_DIR) if f.endswith('.xdelta')]
         
         if not files:
-            hack_listbox.insert(tk.END, " No .xdelta files found in /hacks")
+            hack_listbox.insert(tk.END, " ❌ No Files Found.")
             return
 
         for file in files:
@@ -156,11 +168,16 @@ def refresh_hack_list():
     except Exception as e:
         messagebox.showerror("Error", f"Could not read hacks folder: {e}")
 
-
 def get_selected_hack():
+    """
+    Plays/Patches a hack depending on file type.
+    """
     try:
         selected_index = hack_listbox.curselection()[0]
         selected_text = hack_listbox.get(selected_index)
+
+        if selected_text == " ❌ No Files Found.":
+            return
 
         #print(selected_text)
         
@@ -178,8 +195,10 @@ def get_selected_hack():
     except IndexError:
         messagebox.showwarning("Warning", "Please select a hack from the list first.")
 
-
 def handle_drop(event):
+    """
+    When a file is dragged into the window, the file is moved to the appropriate directory or rejected.
+    """
     filepath = event.data
 
     filepath = filepath.strip("{}")
@@ -197,7 +216,7 @@ def handle_drop(event):
             if US_CLEAN_HASH == md5_hash or EU_CLEAN_HASH == md5_hash:
                 shutil.move(filepath, f"{BASE_DIR}/{hack_name}")
                 auto_detect_roms()
-                messagebox.showinfo("Success!", "Added to base roms directory sucessfully!")
+                messagebox.showinfo("Success!", "Added to base roms directory & loaded sucessfully!")
             else:
                 shutil.move(filepath,f"{PATCHED_DIR}/{hack_name}" )
                 refresh_hack_list()
@@ -207,11 +226,16 @@ def handle_drop(event):
     except subprocess.CalledProcessError as e:
         messagebox.showwarning("Error", f"Unable to move file: {e}")
 
-
 def update_rom_info(event) -> None:
+    """
+    Updates the ROM info panel to show the current hack. Currently only does cover art.
+    """
     try:
         selected_index = hack_listbox.curselection()[0]
         selected_text = hack_listbox.get(selected_index)
+
+        if selected_text == " ❌ No Files Found.":
+            return
 
         filename = selected_text.strip().removeprefix("✅ ").removesuffix(".nds").removesuffix(".xdelta").removeprefix("HIDDEN_")
 
@@ -222,7 +246,12 @@ def update_rom_info(event) -> None:
     except IndexError:
         messagebox.showwarning("Warning", "Please select a hack from the list first.")
 
-def show_img(hack_name) -> None:
+def show_img(hack_name:str) -> None:
+    """
+    Updates the image in the ROM info panel to show a ROM's cover art. Defaults to a placeholder if none is found.
+
+    :param str hack_name: A cleaned file name of the hack to display cover art of.
+    """
     try:
         img = Image.open(f"img/{hack_name}.jpg")
     except FileNotFoundError:
@@ -236,60 +265,59 @@ def show_img(hack_name) -> None:
     rom_photo_label.configure(image=rom_photo)
     rom_photo_label.image = rom_photo 
 
+# Window creation
 root = TkinterDnD.Tk()
 root.title("EoS Hack Manager")
 root.geometry("500x500")
 
+# add drag and drop functionality
 root.drop_target_register(DND_FILES)
 root.dnd_bind("<<Drop>>", handle_drop)
 
-
+# initialize variables
 us_rom_path:str = ""
 eu_rom_path:str = ""
+region = tk.StringVar(value="US")
+show_hidden = tk.BooleanVar(value=False)
 
-
-
-region = tk.StringVar()
-region.set("US")
-
-show_hidden = tk.BooleanVar()
-show_hidden.set(False)
-
+# base roms labels frame
 base_roms = tk.Frame(root)
 base_roms.pack()
-
 
 us_label = tk.Label(base_roms, text="No US ROM selected", fg="gray")
 us_label.pack(side="left")
 
-divider_base = tk.Label(base_roms, text=" | ", fg="gray")
-divider_base.pack(side="left")
+divider_base = tk.Label(base_roms, text=" | ", fg="gray").pack(side="left")
 
 eu_label = tk.Label(base_roms, text="No EU ROM selected", fg="gray")
 eu_label.pack(side="right")
 
+# auto detect & populate base roms
+auto_detect_roms()
+
+# rom infomation frame (contains cover art)
 rom_info = tk.Frame(root)
 rom_info.pack(side="right")
 
-auto_detect_roms()
 
+# Make list of ROMs
 list_label = tk.Label(root, text="Available Hacks:", font=("Hack", 10, "bold"))
 list_label.pack(pady=(10, 2), anchor="w", padx=10)
 
 list_frame = tk.Frame(root)
-list_frame.pack(fill="both", expand=True, padx=20, pady=5)\
-
-
+list_frame.pack(fill="both", expand=True, padx=20, pady=5)
 
 scrollbar = tk.Scrollbar(list_frame)
 scrollbar.pack(side="right", fill="y")
 
-
-
 hack_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, font=("Courier", 10), exportselection=False)
 hack_listbox.pack(side="left", fill="both", expand=True)
+# update cover art on selecting a ROM
 hack_listbox.bind("<<ListboxSelect>>", update_rom_info)
 
+scrollbar.config(command=hack_listbox.yview)
+
+# patch region selector buttons
 region_switcher = tk.Frame(root)
 region_switcher.pack(padx=(0, 0))
 
@@ -298,15 +326,13 @@ us_btn.pack(side="left")
 eu_btn = tk.Radiobutton(region_switcher, text="EU", variable=region, value="EU")
 eu_btn.pack(side="left")
 
+# hide/show hidden ROMs | goes in the region selector frame for consistency
 show_hidden_box = tk.Checkbutton(region_switcher, text="Show Hidden", command=refresh_hack_list, variable=show_hidden)
 show_hidden_box.pack(side="right")
 
-
-scrollbar.config(command=hack_listbox.yview)
-
+# buttons to do stuff to the ROMs / patches
 action_buttons = tk.Frame(root)
 action_buttons.pack(pady=10, side="bottom")
-
 
 select_button = tk.Button(action_buttons, text="Play Hack", command=get_selected_hack)
 select_button.pack(side="left")
@@ -317,14 +343,12 @@ complete_button.pack(side="right")
 # add a no hack selected image 
 no_image = Image.open("img/DEFAULT_no.jpg")
 no_image = no_image.resize((100, 150)) # type: ignore
+# define and pack frame
 rom_photo = ImageTk.PhotoImage(no_image)
 rom_photo_label = tk.Label(rom_info, image=rom_photo)
 rom_photo_label.image = rom_photo
 rom_photo_label.pack(side="top", padx=(0, 20))
 
-
-
-
+# populate list & start program
 refresh_hack_list()
-
 root.mainloop()
